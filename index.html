@@ -1,204 +1,205 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Impacto Challenge Mobile</title>
+<title>Impacto Preciso</title>
+
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
 
 <style>
 body{
-    margin:0;
-    background:#0f172a;
-    color:white;
-    font-family:Arial, sans-serif;
-    text-align:center;
+  margin:0;
+  font-family:Arial, Helvetica, sans-serif;
+  background:linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+  color:white;
+  text-align:center;
 }
 
-h1{
-    margin-top:10px;
+header{
+  padding:20px;
 }
 
-#gameContainer{
-    padding:10px;
+#logo{
+  width:250px;
+  margin-bottom:10px;
 }
 
-canvas{
-    background:white;
-    border-radius:50%;
-    width:90vw;
-    max-width:400px;
-    height:auto;
-    touch-action:manipulation;
+.game-container{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  gap:40px;
+  padding:20px;
+}
+
+#board{
+  width:300px;
+  height:300px;
+  border-radius:50%;
+  background:radial-gradient(circle, red 20%, white 20%, white 40%, red 40%, red 60%, white 60%, white 80%, red 80%);
+  position:relative;
+  cursor:pointer;
+}
+
+#dart{
+  width:20px;
+  height:20px;
+  background:black;
+  border-radius:50%;
+  position:absolute;
+  transform:translate(-50%,-50%);
+  display:none;
+}
+
+#ranking{
+  width:250px;
+  background:rgba(255,255,255,0.1);
+  padding:15px;
+  border-radius:10px;
+  backdrop-filter:blur(10px);
+}
+
+input,button{
+  padding:8px;
+  margin:5px;
+  border-radius:5px;
+  border:none;
 }
 
 button{
-    margin-top:10px;
-    padding:12px 20px;
-    font-size:16px;
-    border:none;
-    border-radius:8px;
-    background:#e11d48;
-    color:white;
+  cursor:pointer;
+  background:#00c6ff;
+  color:white;
 }
 
-#rankingBox{
-    margin-top:20px;
-    background:#1e293b;
-    padding:15px;
-    border-radius:12px;
-    width:90%;
-    max-width:400px;
-    margin-left:auto;
-    margin-right:auto;
-}
-
-ol{
-    padding-left:20px;
-    text-align:left;
+@media(max-width:768px){
+  .game-container{
+    flex-direction:column;
+    align-items:center;
+  }
 }
 </style>
 </head>
-
 <body>
 
-<div id="gameContainer">
-    <h1>🎯 Impacto Challenge</h1>
-    <p>Tiempo: <span id="time">30</span>s</p>
-    <p>Puntaje: <span id="score">0</span></p>
+<header>
+<img src="logo.png" id="logo">
+<h1>Impacto Preciso 🎯</h1>
+</header>
 
-    <canvas id="gameCanvas" width="400" height="400"></canvas>
-    <br>
-    <button onclick="startGame()">Iniciar Juego</button>
+<input type="text" id="playerName" placeholder="Tu nombre">
+<button onclick="startGame()">Iniciar Juego</button>
+
+<h2 id="timer">Tiempo: 10</h2>
+<h2 id="score">Puntos: 0</h2>
+
+<div class="game-container">
+
+<div id="board" onclick="throwDart(event)">
+<div id="dart"></div>
 </div>
 
-<div id="rankingBox">
-    <h2>🏆 Ranking Global</h2>
-    <ol id="ranking"></ol>
+<div id="ranking">
+<h3>🏆 Ranking Global</h3>
+<div id="rankingList"></div>
 </div>
 
-<script type="module">
+</div>
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-
-// 🔥 PEGA AQUÍ TU CONFIG FIREBASE
+<script>
+// 🔥 PON TU CONFIGURACIÓN AQUÍ
 const firebaseConfig = {
-  apiKey: "PEGA_AQUI",
-  authDomain: "PEGA_AQUI",
-  projectId: "PEGA_AQUI",
-  storageBucket: "PEGA_AQUI",
-  messagingSenderId: "PEGA_AQUI",
-  appId: "PEGA_AQUI"
+  apiKey: "TU_API_KEY",
+  authDomain: "TU_AUTH_DOMAIN",
+  projectId: "TU_PROJECT_ID",
+  storageBucket: "TU_STORAGE",
+  messagingSenderId: "TU_SENDER_ID",
+  appId: "TU_APP_ID"
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
 
-let canvas = document.getElementById("gameCanvas");
-let ctx = canvas.getContext("2d");
-
-let centerX = 200;
-let centerY = 200;
+let time = 10;
 let score = 0;
-let timeLeft = 30;
 let gameActive = false;
-let timer;
+let interval;
 
-function drawTarget(){
-    ctx.clearRect(0,0,400,400);
-    let colors = ["red","white","red","white","red"];
-    for(let i=5;i>0;i--){
-        ctx.beginPath();
-        ctx.arc(centerX,centerY,i*30,0,Math.PI*2);
-        ctx.fillStyle = colors[5-i];
-        ctx.fill();
+function startGame(){
+  const name = document.getElementById("playerName").value;
+  if(name === ""){
+    alert("Escribe tu nombre");
+    return;
+  }
+
+  score = 0;
+  time = 10;
+  gameActive = true;
+  document.getElementById("score").innerText = "Puntos: 0";
+  document.getElementById("timer").innerText = "Tiempo: 10";
+
+  interval = setInterval(()=>{
+    time--;
+    document.getElementById("timer").innerText = "Tiempo: " + time;
+    if(time <= 0){
+      clearInterval(interval);
+      gameActive = false;
+      saveScore(name, score);
     }
+  },1000);
 }
 
-function moveTarget(){
-    centerX = Math.random()*300+50;
-    centerY = Math.random()*300+50;
-    drawTarget();
+function throwDart(event){
+  if(!gameActive) return;
+
+  const board = document.getElementById("board");
+  const rect = board.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+
+  const centerX = rect.width/2;
+  const centerY = rect.height/2;
+
+  const distance = Math.sqrt((x-centerX)**2 + (y-centerY)**2);
+
+  let points = 0;
+
+  if(distance < 30) points = 100;
+  else if(distance < 60) points = 80;
+  else if(distance < 90) points = 60;
+  else if(distance < 120) points = 40;
+  else if(distance < 150) points = 20;
+
+  score += points;
+  document.getElementById("score").innerText = "Puntos: " + score;
+
+  const dart = document.getElementById("dart");
+  dart.style.left = x + "px";
+  dart.style.top = y + "px";
+  dart.style.display = "block";
 }
 
-canvas.addEventListener("click",handleShot);
-canvas.addEventListener("touchstart",handleShot);
-
-function handleShot(event){
-    if(!gameActive) return;
-
-    let rect = canvas.getBoundingClientRect();
-    let x, y;
-
-    if(event.touches){
-        x = event.touches[0].clientX - rect.left;
-        y = event.touches[0].clientY - rect.top;
-    } else {
-        x = event.clientX - rect.left;
-        y = event.clientY - rect.top;
-    }
-
-    let scaleX = canvas.width / rect.width;
-    let scaleY = canvas.height / rect.height;
-
-    x *= scaleX;
-    y *= scaleY;
-
-    let distance = Math.sqrt((x-centerX)**2 + (y-centerY)**2);
-    let points = Math.max(0,100 - Math.floor(distance));
-    score += points;
-
-    document.getElementById("score").innerText = score;
-    moveTarget();
+function saveScore(nombre, puntos){
+  db.collection("ranking").add({
+    nombre: nombre,
+    puntos: puntos,
+    fecha: new Date()
+  });
 }
 
-window.startGame = function(){
-    score = 0;
-    timeLeft = 30;
-    gameActive = true;
-    document.getElementById("score").innerText = score;
-    document.getElementById("time").innerText = timeLeft;
-    moveTarget();
-
-    clearInterval(timer);
-    timer = setInterval(()=>{
-        timeLeft--;
-        document.getElementById("time").innerText = timeLeft;
-        if(timeLeft<=0){
-            endGame();
-        }
-    },1000);
-}
-
-async function endGame(){
-    gameActive = false;
-    clearInterval(timer);
-    let name = prompt("Ingresa tu nombre:");
-    if(name){
-        await addDoc(collection(db,"ranking"),{
-            name:name,
-            score:score
-        });
-        loadRanking();
-    }
-}
-
-async function loadRanking(){
-    const q = query(collection(db,"ranking"), orderBy("score","desc"), limit(5));
-    const querySnapshot = await getDocs(q);
-    let list = document.getElementById("ranking");
-    list.innerHTML="";
-    querySnapshot.forEach(doc=>{
-        let data = doc.data();
-        let li = document.createElement("li");
-        li.innerText = data.name + " - " + data.score;
-        list.appendChild(li);
-    });
-}
-
-drawTarget();
-loadRanking();
-
+db.collection("ranking")
+.orderBy("puntos","desc")
+.limit(10)
+.onSnapshot(snapshot=>{
+  let html = "";
+  snapshot.forEach(doc=>{
+    const data = doc.data();
+    html += `<p>${data.nombre} - ${data.puntos} pts</p>`;
+  });
+  document.getElementById("rankingList").innerHTML = html;
+});
 </script>
 
 </body>
