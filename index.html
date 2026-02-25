@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Impacto Challenge Mobile</title>
+
+<style>
+body{
+    margin:0;
+    background:#0f172a;
+    color:white;
+    font-family:Arial, sans-serif;
+    text-align:center;
+}
+
+h1{
+    margin-top:10px;
+}
+
+#gameContainer{
+    padding:10px;
+}
+
+canvas{
+    background:white;
+    border-radius:50%;
+    width:90vw;
+    max-width:400px;
+    height:auto;
+    touch-action:manipulation;
+}
+
+button{
+    margin-top:10px;
+    padding:12px 20px;
+    font-size:16px;
+    border:none;
+    border-radius:8px;
+    background:#e11d48;
+    color:white;
+}
+
+#rankingBox{
+    margin-top:20px;
+    background:#1e293b;
+    padding:15px;
+    border-radius:12px;
+    width:90%;
+    max-width:400px;
+    margin-left:auto;
+    margin-right:auto;
+}
+
+ol{
+    padding-left:20px;
+    text-align:left;
+}
+</style>
+</head>
+
+<body>
+
+<div id="gameContainer">
+    <h1>🎯 Impacto Challenge</h1>
+    <p>Tiempo: <span id="time">30</span>s</p>
+    <p>Puntaje: <span id="score">0</span></p>
+
+    <canvas id="gameCanvas" width="400" height="400"></canvas>
+    <br>
+    <button onclick="startGame()">Iniciar Juego</button>
+</div>
+
+<div id="rankingBox">
+    <h2>🏆 Ranking Global</h2>
+    <ol id="ranking"></ol>
+</div>
+
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+// 🔥 PEGA AQUÍ TU CONFIG FIREBASE
+const firebaseConfig = {
+  apiKey: "PEGA_AQUI",
+  authDomain: "PEGA_AQUI",
+  projectId: "PEGA_AQUI",
+  storageBucket: "PEGA_AQUI",
+  messagingSenderId: "PEGA_AQUI",
+  appId: "PEGA_AQUI"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+let canvas = document.getElementById("gameCanvas");
+let ctx = canvas.getContext("2d");
+
+let centerX = 200;
+let centerY = 200;
+let score = 0;
+let timeLeft = 30;
+let gameActive = false;
+let timer;
+
+function drawTarget(){
+    ctx.clearRect(0,0,400,400);
+    let colors = ["red","white","red","white","red"];
+    for(let i=5;i>0;i--){
+        ctx.beginPath();
+        ctx.arc(centerX,centerY,i*30,0,Math.PI*2);
+        ctx.fillStyle = colors[5-i];
+        ctx.fill();
+    }
+}
+
+function moveTarget(){
+    centerX = Math.random()*300+50;
+    centerY = Math.random()*300+50;
+    drawTarget();
+}
+
+canvas.addEventListener("click",handleShot);
+canvas.addEventListener("touchstart",handleShot);
+
+function handleShot(event){
+    if(!gameActive) return;
+
+    let rect = canvas.getBoundingClientRect();
+    let x, y;
+
+    if(event.touches){
+        x = event.touches[0].clientX - rect.left;
+        y = event.touches[0].clientY - rect.top;
+    } else {
+        x = event.clientX - rect.left;
+        y = event.clientY - rect.top;
+    }
+
+    let scaleX = canvas.width / rect.width;
+    let scaleY = canvas.height / rect.height;
+
+    x *= scaleX;
+    y *= scaleY;
+
+    let distance = Math.sqrt((x-centerX)**2 + (y-centerY)**2);
+    let points = Math.max(0,100 - Math.floor(distance));
+    score += points;
+
+    document.getElementById("score").innerText = score;
+    moveTarget();
+}
+
+window.startGame = function(){
+    score = 0;
+    timeLeft = 30;
+    gameActive = true;
+    document.getElementById("score").innerText = score;
+    document.getElementById("time").innerText = timeLeft;
+    moveTarget();
+
+    clearInterval(timer);
+    timer = setInterval(()=>{
+        timeLeft--;
+        document.getElementById("time").innerText = timeLeft;
+        if(timeLeft<=0){
+            endGame();
+        }
+    },1000);
+}
+
+async function endGame(){
+    gameActive = false;
+    clearInterval(timer);
+    let name = prompt("Ingresa tu nombre:");
+    if(name){
+        await addDoc(collection(db,"ranking"),{
+            name:name,
+            score:score
+        });
+        loadRanking();
+    }
+}
+
+async function loadRanking(){
+    const q = query(collection(db,"ranking"), orderBy("score","desc"), limit(5));
+    const querySnapshot = await getDocs(q);
+    let list = document.getElementById("ranking");
+    list.innerHTML="";
+    querySnapshot.forEach(doc=>{
+        let data = doc.data();
+        let li = document.createElement("li");
+        li.innerText = data.name + " - " + data.score;
+        list.appendChild(li);
+    });
+}
+
+drawTarget();
+loadRanking();
+
+</script>
+
+</body>
+</html>
