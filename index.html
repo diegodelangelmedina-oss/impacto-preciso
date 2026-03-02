@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Impacto Preciso</title>
+<title>Impacto Preciso 2.0</title>
 
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
@@ -61,7 +61,7 @@ header{
   backdrop-filter:blur(10px);
 }
 
-input,button{
+input,select,button{
   padding:8px;
   margin:5px;
   border-radius:5px;
@@ -86,7 +86,7 @@ button{
 
 <header>
 <img src="logo.png" id="logo">
-<h1>Impacto Preciso 🎯</h1>
+<h1>Impacto Preciso 2.0 🎯</h1>
 </header>
 
 <input type="text" id="playerName" placeholder="Tu nombre">
@@ -116,16 +116,15 @@ button{
 </div>
 
 <script>
-// 🔥 PON TU CONFIGURACIÓN AQUÍ
- const firebaseConfig = {
-    apiKey: "AIzaSyAqtmeHSpa61uEtgHUW0UB_euPWjWjG-IA",
-    authDomain: "impacto-preciso.firebaseapp.com",
-    projectId: "impacto-preciso",
-    storageBucket: "impacto-preciso.firebasestorage.app",
-    messagingSenderId: "769895871874",
-    appId: "1:769895871874:web:a964369999bdd42cc04b9b",
-    measurementId: "G-RZ22G5N8M2"
-  };
+
+const firebaseConfig = {
+  apiKey: "TU_API_KEY",
+  authDomain: "impacto-preciso.firebaseapp.com",
+  projectId: "impacto-preciso",
+  storageBucket: "impacto-preciso.appspot.com",
+  messagingSenderId: "769895871874",
+  appId: "1:769895871874:web:a964369999bdd42cc04b9b"
+};
 
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
@@ -145,7 +144,6 @@ function startGame(){
     return;
   }
 
-  // Configuración según dificultad
   if(difficulty === "easy"){
     time = 15;
     difficultyMultiplier = 1;
@@ -165,6 +163,8 @@ function startGame(){
   document.getElementById("score").innerText = "Puntos: 0";
   document.getElementById("timer").innerText = "Tiempo: " + time;
 
+  clearInterval(interval);
+
   interval = setInterval(()=>{
     time--;
     document.getElementById("timer").innerText = "Tiempo: " + time;
@@ -172,23 +172,6 @@ function startGame(){
       clearInterval(interval);
       gameActive = false;
       alert("¡Juego terminado! Tu puntaje fue: " + score);
-      saveScore(name, score);
-    }
-  },1000);
-}
-
-  score = 0;
-  time = 10;
-  gameActive = true;
-  document.getElementById("score").innerText = "Puntos: 0";
-  document.getElementById("timer").innerText = "Tiempo: 10";
-
-  interval = setInterval(()=>{
-    time--;
-    document.getElementById("timer").innerText = "Tiempo: " + time;
-    if(time <= 0){
-      clearInterval(interval);
-      gameActive = false;
       saveScore(name, score);
     }
   },1000);
@@ -243,6 +226,7 @@ db.collection("ranking")
   });
   document.getElementById("rankingList").innerHTML = html;
 });
+
 </script>
 
 </body>
