@@ -17,9 +17,7 @@ body{
   text-align:center;
 }
 
-header{
-  padding:20px;
-}
+header{ padding:20px; }
 
 #logo{
   width:250px;
@@ -73,13 +71,6 @@ button{
   background:#00c6ff;
   color:white;
 }
-
-@media(max-width:768px){
-  .game-container{
-    flex-direction:column;
-    align-items:center;
-  }
-}
 </style>
 </head>
 <body>
@@ -90,13 +81,11 @@ button{
 </header>
 
 <input type="text" id="playerName" placeholder="Tu nombre">
-
 <select id="difficulty">
   <option value="easy">Fácil</option>
   <option value="medium">Medio</option>
   <option value="hard">Difícil</option>
 </select>
-
 <button onclick="startGame()">Iniciar Juego</button>
 
 <h2 id="timer">Tiempo: 10</h2>
@@ -117,6 +106,7 @@ button{
 
 <script>
 
+// 🔥 TU CONFIGURACIÓN REAL
 const firebaseConfig = {
   apiKey: "AIzaSyAqtmeHSpa61uEtgHUW0UB_euPWjWjG-IA",
   authDomain: "impacto-preciso.firebaseapp.com",
@@ -134,7 +124,7 @@ let time = 10;
 let score = 0;
 let difficultyMultiplier = 1;
 let gameActive = false;
-let interval;
+let interval = null;
 
 function startGame(){
   const name = document.getElementById("playerName").value;
@@ -164,11 +154,12 @@ function startGame(){
   document.getElementById("score").innerText = "Puntos: 0";
   document.getElementById("timer").innerText = "Tiempo: " + time;
 
-  clearInterval(interval);
+  if(interval) clearInterval(interval);
 
   interval = setInterval(()=>{
     time--;
     document.getElementById("timer").innerText = "Tiempo: " + time;
+
     if(time <= 0){
       clearInterval(interval);
       gameActive = false;
