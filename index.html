@@ -90,6 +90,13 @@ button{
 </header>
 
 <input type="text" id="playerName" placeholder="Tu nombre">
+
+<select id="difficulty">
+  <option value="easy">Fácil</option>
+  <option value="medium">Medio</option>
+  <option value="hard">Difícil</option>
+</select>
+
 <button onclick="startGame()">Iniciar Juego</button>
 
 <h2 id="timer">Tiempo: 10</h2>
@@ -125,15 +132,50 @@ const db = firebase.firestore();
 
 let time = 10;
 let score = 0;
+let difficultyMultiplier = 1;
 let gameActive = false;
 let interval;
 
 function startGame(){
   const name = document.getElementById("playerName").value;
+  const difficulty = document.getElementById("difficulty").value;
+
   if(name === ""){
     alert("Escribe tu nombre");
     return;
   }
+
+  // Configuración según dificultad
+  if(difficulty === "easy"){
+    time = 15;
+    difficultyMultiplier = 1;
+  }
+  else if(difficulty === "medium"){
+    time = 10;
+    difficultyMultiplier = 1.5;
+  }
+  else{
+    time = 7;
+    difficultyMultiplier = 2;
+  }
+
+  score = 0;
+  gameActive = true;
+
+  document.getElementById("score").innerText = "Puntos: 0";
+  document.getElementById("timer").innerText = "Tiempo: " + time;
+
+  interval = setInterval(()=>{
+    time--;
+    document.getElementById("timer").innerText = "Tiempo: " + time;
+    if(time <= 0){
+      clearInterval(interval);
+      gameActive = false;
+      alert("¡Juego terminado! Tu puntaje fue: " + score);
+      saveScore(name, score);
+    }
+  },1000);
+}
 
   score = 0;
   time = 10;
@@ -173,7 +215,7 @@ function throwDart(event){
   else if(distance < 120) points = 40;
   else if(distance < 150) points = 20;
 
-  score += points;
+  score += Math.floor(points * difficultyMultiplier);
   document.getElementById("score").innerText = "Puntos: " + score;
 
   const dart = document.getElementById("dart");
