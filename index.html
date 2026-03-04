@@ -4,10 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Impacto Preciso 2.0</title>
-
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-firestore-compat.js"></script>
-
 <style>
 body{
   margin:0;
@@ -16,14 +14,11 @@ body{
   color:white;
   text-align:center;
 }
-
 header{ padding:20px; }
-
 #logo{
   width:250px;
   margin-bottom:10px;
 }
-
 .game-container{
   display:flex;
   flex-wrap:wrap;
@@ -31,7 +26,6 @@ header{ padding:20px; }
   gap:40px;
   padding:20px;
 }
-
 #board{
   width:300px;
   height:300px;
@@ -40,7 +34,6 @@ header{ padding:20px; }
   position:relative;
   cursor:pointer;
 }
-
 #dart{
   width:20px;
   height:20px;
@@ -50,7 +43,6 @@ header{ padding:20px; }
   transform:translate(-50%,-50%);
   display:none;
 }
-
 #ranking{
   width:250px;
   background:rgba(255,255,255,0.1);
@@ -58,14 +50,12 @@ header{ padding:20px; }
   border-radius:10px;
   backdrop-filter:blur(10px);
 }
-
 input,select,button{
   padding:8px;
   margin:5px;
   border-radius:5px;
   border:none;
 }
-
 button{
   cursor:pointer;
   background:#00c6ff;
@@ -74,12 +64,10 @@ button{
 </style>
 </head>
 <body>
-
 <header>
 <img src="logo.png" id="logo">
 <h1>Impacto Preciso 2.0 🎯</h1>
 </header>
-
 <input type="text" id="playerName" placeholder="Tu nombre">
 <select id="difficulty">
   <option value="easy">Fácil</option>
@@ -87,26 +75,19 @@ button{
   <option value="hard">Difícil</option>
 </select>
 <button onclick="startGame()">Iniciar Juego</button>
-
 <h2 id="timer">Tiempo: 10</h2>
 <h2 id="score">Puntos: 0</h2>
-
 <div class="game-container">
-
 <div id="board" onclick="throwDart(event)">
 <div id="dart"></div>
 </div>
-
 <div id="ranking">
 <h3>🏆 Ranking Global</h3>
 <div id="rankingList"></div>
 </div>
-
 </div>
 
 <script>
-
-// 🔥 TU CONFIGURACIÓN REAL
 const firebaseConfig = {
   apiKey: "AIzaSyAqtmeHSpa61uEtgHUW0UB_euPWjWjG-IA",
   authDomain: "impacto-preciso.firebaseapp.com",
@@ -116,7 +97,6 @@ const firebaseConfig = {
   appId: "1:769895871874:web:a964369999bdd42cc04b9b",
   measurementId: "G-RZ22G5N8M2"
 };
-
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
@@ -125,15 +105,28 @@ let score = 0;
 let difficultyMultiplier = 1;
 let gameActive = false;
 let interval = null;
+let currentPlayerName = "";  // ← para recordar el nombre durante la partida
+
+// Recordar el nombre al cargar la página
+window.addEventListener('DOMContentLoaded', () => {
+  const savedName = localStorage.getItem('lastPlayerName');
+  if (savedName) {
+    document.getElementById('playerName').value = savedName;
+  }
+});
 
 function startGame(){
-  const name = document.getElementById("playerName").value;
+  const name = document.getElementById("playerName").value.trim();
   const difficulty = document.getElementById("difficulty").value;
 
   if(name === ""){
     alert("Escribe tu nombre");
     return;
   }
+
+  // Guardar nombre para la próxima vez
+  localStorage.setItem('lastPlayerName', name);
+  currentPlayerName = name;
 
   if(difficulty === "easy"){
     time = 15;
@@ -150,7 +143,6 @@ function startGame(){
 
   score = 0;
   gameActive = true;
-
   document.getElementById("score").innerText = "Puntos: 0";
   document.getElementById("timer").innerText = "Tiempo: " + time;
 
@@ -159,67 +151,90 @@ function startGame(){
   interval = setInterval(()=>{
     time--;
     document.getElementById("timer").innerText = "Tiempo: " + time;
-
     if(time <= 0){
       clearInterval(interval);
       gameActive = false;
       alert("¡Juego terminado! Tu puntaje fue: " + score);
-      saveScore(name, score);
+      saveScore(currentPlayerName, score);
     }
   },1000);
 }
 
 function throwDart(event){
   if(!gameActive) return;
-
   const board = document.getElementById("board");
   const rect = board.getBoundingClientRect();
   const x = event.clientX - rect.left;
   const y = event.clientY - rect.top;
-
   const centerX = rect.width/2;
   const centerY = rect.height/2;
-
   const distance = Math.sqrt((x-centerX)**2 + (y-centerY)**2);
-
   let points = 0;
-
   if(distance < 30) points = 100;
   else if(distance < 60) points = 80;
   else if(distance < 90) points = 60;
   else if(distance < 120) points = 40;
   else if(distance < 150) points = 20;
-
   score += Math.floor(points * difficultyMultiplier);
   document.getElementById("score").innerText = "Puntos: " + score;
-
   const dart = document.getElementById("dart");
   dart.style.left = x + "px";
   dart.style.top = y + "px";
   dart.style.display = "block";
 }
 
-function saveScore(nombre, puntos){
-  db.collection("ranking").add({
-    nombre: nombre,
-    puntos: puntos,
-    fecha: new Date()
-  });
+async function saveScore(nombre, puntosNuevos) {
+  try {
+    const query = db.collection("ranking")
+      .where("nombre", "==", nombre)
+      .limit(1);
+
+    const snapshot = await query.get();
+
+    if (!snapshot.empty) {
+      const docRef = snapshot.docs[0].ref;
+      const data = snapshot.docs[0].data();
+      const puntosActuales = data.puntos || 0;
+
+      if (puntosNuevos > puntosActuales) {
+        await docRef.update({
+          puntos: puntosNuevos,
+          fecha: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        console.log(`Nuevo récord: ${nombre} - ${puntosNuevos}`);
+      } else {
+        console.log(`No mejoró: ${puntosNuevos} <= ${puntosActuales}`);
+      }
+    } else {
+      await db.collection("ranking").add({
+        nombre: nombre,
+        puntos: puntosNuevos,
+        fecha: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      console.log(`Nuevo jugador: ${nombre} - ${puntosNuevos}`);
+    }
+  } catch (error) {
+    console.error("Error al guardar:", error);
+  }
 }
 
 db.collection("ranking")
-.orderBy("puntos","desc")
-.limit(10)
-.onSnapshot(snapshot=>{
-  let html = "";
-  snapshot.forEach(doc=>{
-    const data = doc.data();
-    html += `<p>${data.nombre} - ${data.puntos} pts</p>`;
+  .orderBy("puntos","desc")
+  .limit(10)
+  .onSnapshot(snapshot=>{
+    let html = "";
+    let position = 1;
+    snapshot.forEach(doc=>{
+      const data = doc.data();
+      let medal = "";
+      if (position === 1) medal = "🥇 ";
+      else if (position === 2) medal = "🥈 ";
+      else if (position === 3) medal = "🥉 ";
+      html += `<p>${medal}${data.nombre} - ${data.puntos} pts</p>`;
+      position++;
+    });
+    document.getElementById("rankingList").innerHTML = html || "<p>Aún no hay puntajes</p>";
   });
-  document.getElementById("rankingList").innerHTML = html;
-});
-
 </script>
-
 </body>
 </html>
