@@ -372,7 +372,7 @@ async function saveScore(nombre, puntosNuevos) {
   }
 }
 
-db.collection("ranking").orderBy("puntos", "desc").limit(10).onSnapshot(snapshot => {
+db.collection("ranking").orderBy("puntos", "desc").limit(20).onSnapshot(snapshot => {
   let html = "";
   let position = 1;
   snapshot.forEach(doc => {
