@@ -236,245 +236,229 @@
 
     <!-- Mensaje flotante de puntos -->
     <div id="feedbackText"></div>
+<script>
+    // ==================== CONFIGURACIÓN DE FIREBASE ====================
+    const firebaseConfig = {
+        apiKey: "TU_API_KEY",   // ← Cambia esto por tu clave real cuando tengas Firebase listo
+        authDomain: "impacto-preciso.firebaseapp.com",
+        projectId: "impacto-preciso",
+        storageBucket: "impacto-preciso.appspot.com",
+        messagingSenderId: "769895871874",
+        appId: "1:769895871874:web:a964369999bdd42cc04b9b"
+    };
 
-    <script>
-        // ==================== CONFIGURACIÓN DE FIREBASE ====================
-        const firebaseConfig = {
-            apiKey: "TU_API_KEY",
-            authDomain: "impacto-preciso.firebaseapp.com",
-            projectId: "impacto-preciso",
-            storageBucket: "impacto-preciso.appspot.com",
-            messagingSenderId: "769895871874",
-            appId: "1:769895871874:web:a964369999bdd42cc04b9b"
-        };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
 
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
+    // ==================== VARIABLES DEL JUEGO ====================
+    let time = 10;
+    let score = 0;
+    let difficultyMultiplier = 1;
+    let gameActive = false;
+    let interval = null;
+    let canThrow = true;
+    let currentPlayerName = "";
 
-        // ==================== VARIABLES DEL JUEGO ====================
-        let time = 10;                    // Tiempo restante
-        let score = 0;                    // Puntos del jugador
-        let difficultyMultiplier = 1;     // Multiplicador según dificultad
-        let gameActive = false;           // ¿Está el juego en curso?
-        let interval = null;              // Para controlar el temporizador
-        let canThrow = true;              // Evita lanzar muchos dardos seguidos
-        let currentPlayerName = "";       // Nombre del jugador actual
+    window.addEventListener('load', () => {
+        const saved = localStorage.getItem('lastPlayerName');
+        if (saved) document.getElementById('playerName').value = saved;
+    });
 
-        // ==================== AL CARGAR LA PÁGINA ====================
-        window.addEventListener('load', () => {
-            const saved = localStorage.getItem('lastPlayerName');
-            if (saved) document.getElementById('playerName').value = saved;
-        });
+    function enterGame() {
+        const welcome = document.getElementById("welcomeScreen");
+        welcome.style.opacity = "0";
+        setTimeout(() => {
+            welcome.style.display = "none";
+            document.querySelector("header").style.display = "block";
+            document.querySelector(".game-container").style.display = "flex";
+            document.getElementById("timer").style.display = "block";
+            document.getElementById("score").style.display = "block";
+        }, 800);
+    }
 
-        // ==================== FUNCIONES DEL JUEGO ====================
-
-        // Muestra el juego después de la pantalla de bienvenida
-        function enterGame() {
-            const welcome = document.getElementById("welcomeScreen");
-            welcome.style.opacity = "0";
-            setTimeout(() => {
-                welcome.style.display = "none";
-                document.querySelector("header").style.display = "block";
-                document.querySelector(".game-container").style.display = "flex";
-                document.getElementById("timer").style.display = "block";
-                document.getElementById("score").style.display = "block";
-            }, 800);
+    function startGame() {
+        const name = document.getElementById("playerName").value.trim();
+        if (name === "") {
+            alert("Por favor escribe tu nombre");
+            return;
         }
 
-        // Inicia el juego
-        function startGame() {
-            const name = document.getElementById("playerName").value.trim();
-            if (name === "") {
-                alert("Por favor escribe tu nombre");
-                return;
-            }
+        localStorage.setItem('lastPlayerName', name);
+        currentPlayerName = name;
 
-            localStorage.setItem('lastPlayerName', name);
-            currentPlayerName = name;
+        const diff = document.getElementById("difficulty").value;
+        if (diff === "easy") { time = 15; difficultyMultiplier = 1; }
+        else if (diff === "medium") { time = 10; difficultyMultiplier = 1.5; }
+        else { time = 7; difficultyMultiplier = 2; }
 
-            // Configurar dificultad
-            const diff = document.getElementById("difficulty").value;
-            if (diff === "easy") { time = 15; difficultyMultiplier = 1; }
-            else if (diff === "medium") { time = 10; difficultyMultiplier = 1.5; }
-            else { time = 7; difficultyMultiplier = 2; }
+        score = 0;
+        gameActive = true;
+        document.getElementById("score").innerText = "Puntos: 0";
+        document.getElementById("timer").innerText = "Tiempo: " + time;
 
-            score = 0;
-            gameActive = true;
-
-            document.getElementById("score").innerText = "Puntos: 0";
+        if (interval) clearInterval(interval);
+        interval = setInterval(() => {
+            time--;
             document.getElementById("timer").innerText = "Tiempo: " + time;
-
-            if (interval) clearInterval(interval);
-
-            interval = setInterval(() => {
-                time--;
-                document.getElementById("timer").innerText = "Tiempo: " + time;
-
-                if (time <= 0) {
-                    clearInterval(interval);
-                    gameActive = false;
-                    alert("¡Juego terminado! Tu puntaje fue: " + score);
-                    
-                    // Borra los dardos al terminar
-                    document.querySelectorAll('.dart').forEach(d => d.remove());
-                    
-                    if (currentPlayerName) saveScore(currentPlayerName, score);
-                }
-            }, 1000);
-        }
-
-        // Reinicia el juego completamente
-        function resetGame() {
-            clearInterval(interval);
-            gameActive = false;
-            time = 10;
-            score = 0;
-            document.getElementById("timer").innerText = "Tiempo: 10";
-            document.getElementById("score").innerText = "Puntos: 0";
-            document.querySelectorAll('.dart').forEach(d => d.remove());
-        }
-
-        // Función principal: Lanzar el dardo
-        function throwDart(event) {
-            if (!gameActive || !canThrow) return;
-
-            canThrow = false;
-            setTimeout(() => { canThrow = true; }, 300);
-
-            const board = document.getElementById("board");
-            const rect = board.getBoundingClientRect();
-            const x = event.clientX - rect.left;
-            const y = event.clientY - rect.top;
-
-            const centerX = rect.width / 2;
-            const centerY = rect.height / 2;
-            const distance = Math.sqrt((x - centerX)**2 + (y - centerY)**2);
-
-            if (distance > 160) return; // Fuera del tablero
-
-            // Calcular puntos según la distancia al centro
-            let points = 0;
-            if (distance < 30) points = 100;
-            else if (distance < 60) points = 80;
-            else if (distance < 90) points = 60;
-            else if (distance < 120) points = 40;
-            else if (distance < 150) points = 20;
-
-            // Efecto visual si es bullseye
-            if (points === 100) {
-                board.classList.add("bullseye");
-                setTimeout(() => board.classList.remove("bullseye"), 600);
+            if (time <= 0) {
+                clearInterval(interval);
+                gameActive = false;
+                alert("¡Juego terminado! Tu puntaje fue: " + score);
+                document.querySelectorAll('.dart').forEach(d => d.remove());
+                if (currentPlayerName) saveScore(currentPlayerName, score);
             }
+        }, 1000);
+    }
 
-            const totalPoints = Math.floor(points * difficultyMultiplier);
-            score += totalPoints;
-            document.getElementById("score").innerText = "Puntos: " + score;
+    function resetGame() {
+        clearInterval(interval);
+        gameActive = false;
+        time = 10;
+        score = 0;
+        document.getElementById("timer").innerText = "Tiempo: 10";
+        document.getElementById("score").innerText = "Puntos: 0";
+        document.querySelectorAll('.dart').forEach(d => d.remove());
+    }
 
-            // Animación del dardo volando
-            createFlyingDart(x, y, rect, centerX, centerY, totalPoints);
+    // ====================== LANZAR DARDO ======================
+    function throwDart(event) {
+        if (!gameActive || !canThrow) return;
+        canThrow = false;
+        setTimeout(() => { canThrow = true; }, 300);
+
+        const board = document.getElementById("board");
+        const rect = board.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+        const distance = Math.sqrt((x - centerX)**2 + (y - centerY)**2);
+
+        if (distance > 160) return;
+
+        let points = 0;
+        if (distance < 30) points = 100;
+        else if (distance < 60) points = 80;
+        else if (distance < 90) points = 60;
+        else if (distance < 120) points = 40;
+        else if (distance < 150) points = 20;
+
+        if (points === 100) {
+            board.classList.add("bullseye");
+            setTimeout(() => board.classList.remove("bullseye"), 600);
         }
 
-        // ==================== FUNCIONES AUXILIARES ====================
+        const totalPoints = Math.floor(points * difficultyMultiplier);
+        score += totalPoints;
+        document.getElementById("score").innerText = "Puntos: " + score;
 
-        function createFlyingDart(x, y, rect, centerX, centerY, totalPoints) {
-            const hitX = rect.left + x;
-            const hitY = rect.top + y;
-            const startX = window.innerWidth / 2;
-            const startY = window.innerHeight + 100;
+        // Crear dardo volador + dardo clavado
+        createFlyingDart(x, y, rect, centerX, centerY, totalPoints);
+    }
 
-            const flyDart = document.createElement('div');
-            flyDart.className = 'dart-fly';
-            flyDart.innerHTML = `<!-- SVG del dardo -->`; // (el SVG completo está en el código original)
+    // ====================== CREAR DARDO VOLADOR Y CLAVADO ======================
+    function createFlyingDart(x, y, rect, centerX, centerY, totalPoints) {
+        const hitX = rect.left + x;
+        const hitY = rect.top + y;
+        const startX = window.innerWidth / 2;
+        const startY = window.innerHeight + 100;
 
-            flyDart.style.left = startX + 'px';
-            flyDart.style.top = startY + 'px';
-            document.body.appendChild(flyDart);
+        const angle = Math.atan2(centerY - y, centerX - x) * 180 / Math.PI;
 
-            setTimeout(() => {
-                const angleToCenter = Math.atan2(centerY - y, centerX - x) * 180 / Math.PI;
-                flyDart.style.left = (hitX - 16) + 'px';
-                flyDart.style.top = (hitY - 32) + 'px';
-                flyDart.style.transform += ` rotate(${angleToCenter}deg)`;
-            }, 10);
+        // === Dardo volador ===
+        const flyDart = document.createElement('div');
+        flyDart.className = 'dart-fly';
+        flyDart.innerHTML = `
+            <svg viewBox="0 0 512 512" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+                <path fill="#c8102e" stroke="#8b0000" stroke-width="4" d="M134.745 22.098c-4.538-.146-9.08 1.43-14.893 7.243-5.586 5.586-11.841 21.725-15.248 35.992-.234.979-.444 1.907-.654 2.836l114.254 105.338c-7.18-28.538-17.555-59.985-29.848-86.75-11.673-25.418-25.249-46.657-37.514-57.024-6.132-5.183-11.56-7.488-16.097-7.635zM92.528 82.122L82.124 92.526 243.58 267.651l24.072-24.072L92.528 82.122zm-24.357 21.826c-.929.21-1.857.42-2.836.654-14.267 3.407-30.406 9.662-35.993 15.248-5.813 5.813-7.39 10.355-7.244 14.893.147 4.538 2.452 9.965 7.635 16.098 10.367 12.265 31.608 25.842 57.025 37.515 26.766 12.293 58.211 22.669 86.749 29.848L68.17 103.948zM280.899 255.79l-25.107 25.107 73.265 79.469 31.31-31.31L280.9 255.79zm92.715 85.476l-32.346 32.344 2.07 2.246c.061.058 4.419 4.224 10.585 6.28 6.208 2.069 12.71 2.88 21.902-6.313 9.192-9.192 8.38-15.694 6.31-21.902-2.057-6.174-6.235-10.54-6.283-10.59l-2.238-2.065zm20.172 41.059a46.23 46.23 0 0 1-5.233 6.226 46.241 46.241 0 0 1-6.226 5.235L489.91 489.91l-96.125-107.586z"/>
+                <path fill="#ffffff" stroke="#000000" stroke-width="3" d="M256 100 L240 60 L256 20 L272 60 Z M256 100 L240 140 L256 180 L272 140 Z M256 100 L220 80 L180 100 L220 120 Z M256 100 L292 80 L332 100 L292 120 Z"/>
+            </svg>
+        `;
+        flyDart.style.left = startX + 'px';
+        flyDart.style.top = startY + 'px';
+        document.body.appendChild(flyDart);
 
-            // Después de la animación, clavamos el dardo en el tablero
-            setTimeout(() => {
-                flyDart.remove();
+        // Animación hacia el tablero
+        setTimeout(() => {
+            flyDart.style.left = (hitX - 16) + 'px';
+            flyDart.style.top = (hitY - 32) + 'px';
+            flyDart.style.transform = `rotate(${angle}deg)`;
+        }, 10);
 
-                const newStuckDart = document.createElement('div');
-                newStuckDart.className = 'dart';
-                newStuckDart.innerHTML = `<!-- SVG del dardo -->`;
-                newStuckDart.style.left = x + 'px';
-                newStuckDart.style.top = y + 'px';
-                newStuckDart.style.transform = `rotate(${Math.atan2(centerY - y, centerX - x) * 180 / Math.PI}deg) scale(0.7)`;
-                
-                document.getElementById("board").appendChild(newStuckDart);
+        // Después de la animación, clavamos el dardo
+        setTimeout(() => {
+            flyDart.remove();
 
-                // Máximo 4 dardos clavados
-                const allStuck = document.querySelectorAll('.dart');
-                if (allStuck.length > 4) allStuck[0].remove();
+            const stuckDart = document.createElement('div');
+            stuckDart.className = 'dart';
+            stuckDart.style.left = (x - 8) + 'px';
+            stuckDart.style.top = (y - 16) + 'px';
+            stuckDart.style.transform = `rotate(${angle}deg)`;
+            stuckDart.style.display = 'block';
+            stuckDart.style.zIndex = '5';
 
-                // Mostrar puntos flotantes
-                showFeedback(totalPoints);
-            }, 800);
-        }
+            stuckDart.innerHTML = `
+                <svg viewBox="0 0 512 512" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+                    <path fill="#c8102e" stroke="#8b0000" stroke-width="4" d="M134.745 22.098c-4.538-.146-9.08 1.43-14.893 7.243-5.586 5.586-11.841 21.725-15.248 35.992-.234.979-.444 1.907-.654 2.836l114.254 105.338c-7.18-28.538-17.555-59.985-29.848-86.75-11.673-25.418-25.249-46.657-37.514-57.024-6.132-5.183-11.56-7.488-16.097-7.635zM92.528 82.122L82.124 92.526 243.58 267.651l24.072-24.072L92.528 82.122zm-24.357 21.826c-.929.21-1.857.42-2.836.654-14.267 3.407-30.406 9.662-35.993 15.248-5.813 5.813-7.39 10.355-7.244 14.893.147 4.538 2.452 9.965 7.635 16.098 10.367 12.265 31.608 25.842 57.025 37.515 26.766 12.293 58.211 22.669 86.749 29.848L68.17 103.948zM280.899 255.79l-25.107 25.107 73.265 79.469 31.31-31.31L280.9 255.79zm92.715 85.476l-32.346 32.344 2.07 2.246c.061.058 4.419 4.224 10.585 6.28 6.208 2.069 12.71 2.88 21.902-6.313 9.192-9.192 8.38-15.694 6.31-21.902-2.057-6.174-6.235-10.54-6.283-10.59l-2.238-2.065zm20.172 41.059a46.23 46.23 0 0 1-5.233 6.226 46.241 46.241 0 0 1-6.226 5.235L489.91 489.91l-96.125-107.586z"/>
+                    <path fill="#ffffff" stroke="#000000" stroke-width="3" d="M256 100 L240 60 L256 20 L272 60 Z M256 100 L240 140 L256 180 L272 140 Z M256 100 L220 80 L180 100 L220 120 Z M256 100 L292 80 L332 100 L292 120 Z"/>
+                </svg>
+            `;
 
-        function showFeedback(points) {
-            const feedback = document.getElementById("feedbackText");
-            feedback.innerText = "+" + points + " pts!";
-            feedback.style.opacity = "1";
-            feedback.style.animation = "floatUp 1.4s ease-out forwards";
+            document.getElementById("board").appendChild(stuckDart);
 
-            // Sonido de impacto
-            const audio = new Audio("https://cdn.freesound.org/previews/387/387232_7253554-lq.mp3");
-            audio.volume = 0.5;
-            audio.play().catch(() => {});
+            // Máximo 4 dardos visibles
+            const allDarts = document.querySelectorAll('.dart');
+            if (allDarts.length > 4) allDarts[0].remove();
 
-            setTimeout(() => {
-                feedback.style.opacity = "0";
-            }, 1400);
-        }
+            showFeedback(totalPoints);
+        }, 900);
+    }
 
-        // Guardar puntaje en Firebase
-        async function saveScore(nombre, puntosNuevos) {
-            try {
-                const q = db.collection("ranking").where("nombre", "==", nombre).limit(1);
-                const querySnapshot = await q.get();
+    function showFeedback(points) {
+        const feedback = document.getElementById("feedbackText");
+        feedback.innerText = `+${points} pts!`;
+        feedback.style.opacity = "1";
+        feedback.style.animation = "floatUp 1.4s ease-out forwards";
 
-                if (!querySnapshot.empty) {
-                    const doc = querySnapshot.docs[0];
-                    const oldScore = doc.data().puntos || 0;
-                    if (puntosNuevos > oldScore) {
-                        await doc.ref.update({ 
-                            puntos: puntosNuevos, 
-                            fecha: firebase.firestore.FieldValue.serverTimestamp() 
-                        });
-                    }
-                } else {
-                    await db.collection("ranking").add({ 
-                        nombre: nombre, 
-                        puntos: puntosNuevos, 
-                        fecha: firebase.firestore.FieldValue.serverTimestamp() 
-                    });
+        const audio = new Audio("https://cdn.freesound.org/previews/387/387232_7253554-lq.mp3");
+        audio.volume = 0.5;
+        audio.play().catch(() => {});
+
+        setTimeout(() => { feedback.style.opacity = "0"; }, 1400);
+    }
+
+    // Guardar y mostrar ranking (sin cambios importantes)
+    async function saveScore(nombre, puntosNuevos) {
+        try {
+            const q = db.collection("ranking").where("nombre", "==", nombre).limit(1);
+            const querySnapshot = await q.get();
+            if (!querySnapshot.empty) {
+                const doc = querySnapshot.docs[0];
+                if (puntosNuevos > (doc.data().puntos || 0)) {
+                    await doc.ref.update({ puntos: puntosNuevos, fecha: firebase.firestore.FieldValue.serverTimestamp() });
                 }
-            } catch (err) {
-                console.error("ERROR al guardar puntaje:", err);
+            } else {
+                await db.collection("ranking").add({ nombre: nombre, puntos: puntosNuevos, fecha: firebase.firestore.FieldValue.serverTimestamp() });
             }
+        } catch (err) {
+            console.error("ERROR al guardar puntaje:", err);
         }
+    }
 
-        // Actualizar ranking en tiempo real
-        db.collection("ranking").orderBy("puntos", "desc").limit(20).onSnapshot(snapshot => {
-            let html = "";
-            let position = 1;
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                let medal = position === 1 ? "🥇" : position === 2 ? "🥈" : position === 3 ? "🥉" : "";
-                const className = position === 1 ? ' class="top1"' : '';
-                html += `<p${className}>${medal} ${data.nombre} - ${data.puntos} pts</p>`;
-                position++;
-            });
-            document.getElementById("rankingList").innerHTML = html || "<p>Aún no hay puntajes</p>";
+    db.collection("ranking").orderBy("puntos", "desc").limit(20).onSnapshot(snapshot => {
+        let html = "";
+        let position = 1;
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            let medal = position === 1 ? "🥇" : position === 2 ? "🥈" : position === 3 ? "🥉" : "";
+            const className = position === 1 ? ' class="top1"' : '';
+            html += `<p${className}>${medal} ${data.nombre} - ${data.puntos} pts</p>`;
+            position++;
         });
-    </script>
+        document.getElementById("rankingList").innerHTML = html || "<p>Aún no hay puntajes</p>";
+    });
+</script>
+    
 </body>
 </html>
